@@ -1,0 +1,26 @@
+name="MCT_0.305_77k";
+f = linspace(c/2e-6, c/10e-6,5001);  # frequency vector
+n = getfdtdindex(name,f,min(f),max(f)); #getindex 'name(copy from Materials)'
+?size(n);
+wl=c/f*1e6;
+nr=real(n);
+ni=imag(n);
+plot(wl,nr,ni,"w um","n");
+legend("real","imag");
+
+##export to '.TXT'
+#for(i=1:length(f)){
+#str=num2str(wl(i))+"        "+num2str(nr(i));
+#write(name+"-n.txt",str);    #name
+#}
+
+#for(i=1:length(f)){
+#str=num2str(wl(i))+"        "+num2str(ni(i));
+#write(name+"-k.txt",str);    #name
+#}
+
+#export to one '.TXT'
+for(i=1:length(f)){
+str=num2str(wl(i))+"        "+num2str(nr(i))+"        "+num2str(ni(i));
+write(name+"-nk.txt",str);    #name
+}

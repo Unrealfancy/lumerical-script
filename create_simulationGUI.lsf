@@ -1,0 +1,267 @@
+status = layoutmode;
+if (status == 0) {
+    switchtolayout;
+}
+clear;selectall;deleteall;
+
+Mlist=splitstring(getmaterial(),endl);
+for(i=1:length(Mlist)){Mstr=Mstr+Mlist{i}+"|";}
+newwizard(600,400,"Power Box Wizard");
+wizardoption("fontsize",20);
+wizardoption("fieldwidth",200);
+wizardoption("fieldheight",50);
+newwizardpage("Next");
+wizardwidget("label",endl+"模拟设置:"+endl);
+wizardoption("margin",100);
+newwizardpage("Next");
+wizardwidget("label",endl+"模拟设置:"+endl);
+wizardwidget("number","周期P(微米):");
+wizardwidget("number","层数n:");
+wizardwidget("number","起始波长(微米)");
+wizardwidget("number","截止波长(微米)");
+wizardwidget("number","第i层吸收计算(无需则为0)");
+wizardwidget("menu","模拟精度","1|2|3|4|5|6|7|8",2);
+out=runwizard;
+P=wizardgetdata(1);
+n=wizardgetdata(2);
+lam0=wizardgetdata(3);
+lam1=wizardgetdata(4);
+a=wizardgetdata(6);
+mesh=wizardgetdata(5);
+
+if(out==0) {
+    ?"User cancelled";
+    killwizard;break;}
+    if(out==1){
+        newwizardpage("Next");
+        wizardwidget("label","如自定义材料请把材料名命名为user1/2/3"+endl);
+        for(i=[1:n]){
+            wizardwidget("number","第"+num2str(i)+"层厚度d(微米):");
+            wizardwidget("number","第"+num2str(i)+"层宽度w(微米):");
+            wizardwidget("menu","第"+num2str(i)+"层材料:",Mstr,1);
+        }
+        out=runwizard;
+        D=1:n;W=1:n;M=cell(n);
+        for(i=[1:n]){
+            eval("d"+num2str(i)+"=wizardgetdata("+num2str(3*i-2)+");");
+            eval("w"+num2str(i)+"=wizardgetdata("+num2str(3*i-1)+");");
+            M{i}=Mlist{wizardgetdata(3*i)};
+        }
+    }
+    if(out==0) {
+        ?"User cancelled";
+        killwizard;break;}
+        if(out==1){
+            newwizardpage("Done");
+            wizardwidget("menu","扫描参数","d|w",1);
+            wizardwidget("number","扫描第几层(小于等于n)");
+            wizardwidget("number","扫描范围起始值(微米)");
+            wizardwidget("number","扫描范围最终值(微米)");
+            wizardwidget("number","扫描点数");
+            out=runwizard;
+            pam=wizardgetdata(1);
+            if(pam==1){pam="d";}
+            else{pam="w";}
+            a=wizardgetdata(2);
+            st=wizardgetdata(3)*1e-6;
+            sp=wizardgetdata(4)*1e-6;
+            Point=wizardgetdata(5);
+            killwizard;
+        }
+        if(out==0) {
+            ?"User cancelled";
+            killwizard;break;
+        }
+        
+        Name=pam+num2str(a);
+        try{deletesweep(Name);}
+        addsweep;
+        setsweep('sweep','name',Name);
+        setsweep(Name, "type", "Ranges");
+        setsweep(Name, "number of points",Point);
+        
+        Band=[lam0*1e-6,lam1*1e-6];
+        Y=matrix(n+1);
+        for(i=1:n){
+            eval("D(i)=d"+num2str(i)+"*1e-6;");
+            eval("W(i)=w"+num2str(i)+"*1e-6;");
+            if (i==1){Y(1)=0;Y(2)=D(1);}
+            else{Y(i+1)=Y(i)+D(i);}}
+            
+            script="selectall;delete;\n";
+            script=script+"Y=matrix(n+1);\n";
+            script=script+"for(i=1:n){\n";
+            script=script+"D=1:n;W=1:n;M=cell(n);\n";
+            script=script+"eval(\"D(i)=d\"+num2str(i)+\";\");\n";
+            script=script+"eval(\"W(i)=w\"+num2str(i)+\";\");\n";
+            script=script+"eval(\"M{i}=m\"+num2str(i)+\";\");\n";
+            script=script+"if (i==1){Y(1)=0;Y(2)=d1;}\n";
+            script=script+"else{Y(i+1)=Y(i)+D(i);}\n";
+            
+            script=script+"addrect;\n";
+            script=script+"set(\"name\",\"layer\"+num2str(i));\n";
+            script=script+"set(\"x\",0);\n";
+            script=script+"set(\"x span\",W(i));\n";
+            script=script+"set(\"y min\",Y(i));\n";
+            script=script+"set(\"y max\",Y(i+1));\n";
+            script=script+"set(\"z\",0);\n";
+            script=script+"set(\"z span\",1e-6);\n";
+            script=script+"set(\"material\",M{i});}\n";
+            
+            addstructuregroup;
+            set("name","structure");
+            set("x",0);
+            set("y",0);
+            set("z",0);
+            adduserprop("n",0,n);
+            for(i=1:n){
+                adduserprop("d"+num2str(i),2,D(i));
+                adduserprop("w"+num2str(i),2,W(i));
+                adduserprop("m"+num2str(i),5,M{i});
+            }
+            set("script",script);
+            ##建模
+            
+            addfdtd;
+            set("x",0);
+            set("x span",P*1E-6);
+            set("y min",0);
+            set("y max",Y(n+1)+2*lam1*1e-6);
+            set("z",0);
+            set("dimension","2D");
+            set("x min bc","periodic");
+            set("x max bc","periodic");
+            set("pml layers",16);
+            set("mesh accuracy",mesh);
+            ##设置FDTD
+            
+            addplane;
+            set("direction","Backward");
+            set("x",0);
+            set("x span",P*1E-6);
+            set("y",Y(n+1)+2*lam1*1e-6/2);
+            set("z",0);
+            set("wavelength start",Band(1));
+            set("wavelength stop",Band(2));
+            ##设置光源
+            
+            setglobalmonitor("frequency points",100);
+            ##设结果取点数
+            
+            addpower;
+            set("name","R");
+            set("monitor type","linear X");
+            set("x",0);
+            set("x span",P*1E-6);
+            set("y",Y(n+1)+2*lam1*1e-6/1.5);
+            set("z",0);
+            ##反射monitor
+            
+            addpower;
+            set("name","T");
+            set("monitor type","linear X");
+            set("x",0);
+            set("x span",P*1E-6);
+            set("y",0);
+            set("z",0);
+            ##透射monitor
+            
+            addprofile;
+            set("name","E");
+            set("monitor type","2D Z-normal");
+            set("x",0);
+            set("x span",P*1E-6);
+            set("y min",0);
+            set("y max",Y(n+1));
+            set("z",0);
+            ##场分布monitor
+            if(a!=0){
+                addobject("pabs");
+                set("x",0);
+                set("x span",W(a));
+                set("y",(Y(a)+Y(a+1))/2);
+                set("y span",Y(a+1)-Y(a));
+                set("z",0);
+            }
+############################
+#设置sweep            
+if(findstring(Name,"d")==1){
+    Ys=Y;Ye=Y;
+    eval("D("+num2str(a)+")=st;");
+    for(i=1:n){
+        if (i==1){Ys(1)=0;Ys(2)=D(1);}
+        else{Ys(i+1)=Ys(i)+D(i);}}
+        eval("D("+num2str(a)+")=sp;");
+        for(i=1:n){
+            if (i==1){Ye(1)=0;Ye(2)=D(1);}
+            else{Ye(i+1)=Ye(i)+D(i);}
+        }
+        ##定义parameter
+        #设置厚度变量
+        para = struct;
+        para.Name = Name;
+        para.Parameter = "::model::structure::"+Name;
+        para.Type = "Length";
+        para.Start = st;
+        para.Stop = sp;
+        para.Units = "microns";
+        addsweepparameter(Name, para);
+        #设置吸收变量（不为0）
+        if(a!=0){
+            para.Name = Name+"Pabs";
+            para.Parameter = "::model::Pabs::y";
+            para.Type = "Length";
+            para.Start = (Ys(a)+Ys(a+1))/2;
+            para.Stop = (Ye(a)+Ye(a+1))/2;
+            para.Units = "microns";
+            addsweepparameter(Name, para);
+            
+            para.Name = Name+"Pabs";
+            para.Parameter = "::model::Pabs::y span";
+            para.Type = "Length";
+            para.Start = Ys(a+1)-Ys(a);
+            para.Stop = Ye(a+1)-Ye(a);
+            para.Units = "microns";
+            addsweepparameter(Name, para);
+        }
+    }
+    else if(findstring(Name,"w")==1){
+        for(i=1:n){
+            if (i==1){Y(1)=0;Y(2)=D(1);}
+            else{Y(i+1)=Y(i)+D(i);}}
+            para = struct;
+            para.Name = Name;
+            para.Parameter = "::model::structure::"+Name;
+            para.Type = "Length";
+            para.Start = st;
+            para.Stop = sp;
+            para.Units = "microns";
+            addsweepparameter(Name, para);
+            #设置吸收变量（a不为0）
+            if(a!=0){
+                para.Name = Name+"Pabs";
+                para.Parameter = "::model::Pabs::x span";
+                para.Type = "Length";
+                para.Start = st;
+                para.Stop = sp;
+                para.Units = "microns";
+                addsweepparameter(Name, para);
+            }
+        }
+        
+        ##定义result
+        res1=struct;
+        res1.Name ="R";
+        res1.result = "::model::R::T";
+        addsweepresult(Name,res1);
+        res2=struct;
+        res2.Name ="A";
+        res2.result = "::model::Pabs::Pabs_total";
+        addsweepresult(Name,res2);
+        
+        
+        
+        
+        
+        
+        

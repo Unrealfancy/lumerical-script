@@ -1,0 +1,12 @@
+clear;
+name={"X1","X3","X4"};#输入monitor变量名
+Data=cell(length(name));
+Edata=cell(length(name));
+Edata=cell(length(name));
+for (i=1:length(name)){
+Data{i}=getresult(name{i},"E"); #获取坐标数据
+Edata{i}=Data{i}.E2;            #获取场分布数据  
+}
+#cc=dd.E2;
+#matlabsave("cc",cc);
+matlabsave("edata",Data,Edata,name);

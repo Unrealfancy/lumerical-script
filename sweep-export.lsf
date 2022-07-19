@@ -1,0 +1,87 @@
+######################
+#the script is used to export sweep data
+#can be run after createstructure.lsf and setsweep.lsf
+#have been run
+#######################
+
+
+clear;
+sn='d2';    #sweep parameter name  
+Name="d2"+sn;    #sweep名称
+
+
+point=getsweep(Name,"number of points");
+range=getsweep(Name,sn);
+st=range.start;
+sp=range.stop;
+step=(sp-st)/(point-1);
+#获得sweep parameter
+
+R=getsweepresult(Name,'R');
+L=R.lambda;
+RR=R.T;
+
+plot(L*1e6,RR,'wavelength(um)','Reflection(%)');
+lgd=cell(point);
+for(n=1:point){
+    lgd{n}=sn+'='+num2str((st+(n-1)*step)*1e6)+'um';
+}
+legend(lgd);
+
+T=-getsweepresult(Name,'R');
+L=T.lambda;
+RR=T.T;
+plot(L*1e6,RR,'wavelength(um)','Reflection(%)');
+lgd=cell(point);
+for(n=1:point){
+    lgd{n}=sn+'='+num2str((st+(n-1)*step)*1e6)+'um';
+}
+legend(lgd);
+
+A=getsweepresult(Name,'A');
+L=R.lambda;
+AA=A.Pabs_total;
+
+
+plot(L*1e6,RR,'wavelength(um)','Reflection(%)');
+lgd=cell(point);
+for(n=1:point){
+    lgd{n}=sn+'='+num2str((st+(n-1)*step)*1e6)+'um';
+}
+legend(lgd);
+
+plot(L*1e6,AA,'wavelength(um)','Reflection(%)');
+lgd=cell(point);
+for(n=1:point){
+    lgd{n}=sn+'='+num2str((st+(n-1)*step)*1e6)+'um';
+}
+legend(lgd);
+##plot
+
+#title="wavelength";
+#for(n=1:point){
+        #title=title+"         "+"R"+num2str(n);
+    #}
+#write("Reflection.txt",title);
+#for(i=1:length(L)){  
+    #str=num2str(L(i));
+    #for (n=[1:point]){
+        #str=str+"         "+num2str(RR(i,n));
+    #}
+#write("Reflection.txt",str);
+#} 
+
+#write("Absorbance.txt",title);
+#for(i=1:length(L)){  
+    #str=num2str(L(i));
+    #for (n=[1:point]){
+        #str=str+"         "+num2str(AA(i,n));
+    #}
+#write("Absorbance.txt",str);
+#} 
+
+##Export Reflection.txt
+
+
+
+

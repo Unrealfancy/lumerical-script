@@ -1,0 +1,268 @@
+##########################
+##单位：微米
+##需设置的量：P周期，n层数，
+##D每一层宽度，H每一层厚度（从下到上）
+##Band模拟波长范围，M每一层材料，
+##设置方法在Materials里点击材料，ctrl+c,
+##复制到M里。
+##设置完后run
+##########################
+status = layoutmode;
+if (status == 0) {
+    switchtolayout;
+}
+clear;
+selectall;
+delete;
+Px=0.314;	Py=Px;		#周期x,y
+lam0=0.3;	lam1=0.7;		#起始波长,截止波长	
+mesh=2;			#计算精度，范围1-8
+n=2;			#层数
+a=0; 			#计算第n层的吸收率
+down=[0]; order=[1];	#重叠层（无则为0）
+
+D=1:n;WX=1:n;WY=1:n;M=cell(n);
+wx1=1;	wy1=wx1; d1=0.2;	M{1}="Al (Aluminium) - Palik";
+wx2=1;	wy2=wx2; d2=0.1;	M{2}="Si (Silicon) - Palik";
+##每层的宽度、厚度和材料，多层写多行
+#########################
+
+Band=[lam0*1e-6,lam1*1e-6];
+
+
+Y=matrix(n+1);
+for(i=1:n){
+    eval("D(i)=d"+num2str(i)+"*1e-6;");
+    eval("WX(i)=wx"+num2str(i)+"*1e-6;");
+    eval("WY(i)=wy"+num2str(i)+"*1e-6;");
+    if (i==1){Y(1)=0;Y(2)=D(1);}
+    else if (find(down==i)){Y(i+1)=Y(i)+D(i);Y(i+1)=Y(i+1)-D(i);}
+    else{Y(i+1)=Y(i)+D(i);}
+}
+
+
+script="selectall;delete;\n";
+script=script+"Y=matrix(n+1);ord=-1;\n";
+script=script+"D=1:n;WX=1:n;WY=1:n;M=cell(n);\n";
+script=script+"eval(\"down=[\"+replacestring(down,\"	\",\",\")+\"];\");\n";
+script=script+"for(i=1:n){\n";
+script=script+"eval(\"D(i)=d\"+num2str(i)+\";\");\n";
+script=script+"eval(\"WX(i)=wx\"+num2str(i)+\";\");\n";
+script=script+"eval(\"WY(i)=wy\"+num2str(i)+\";\");\n";
+script=script+"eval(\"M{i}=m\"+num2str(i)+\";\");\n";
+script=script+"if (i==1){Y(1)=0;Y(2)=d1;}\n";
+script=script+"else if (find(down==i)){Y(i+1)=Y(i);}\n";
+script=script+"else{Y(i+1)=Y(i)+D(i);}\n";
+
+script=script+"addrect;\n";
+script=script+"set(\"name\",\"layer\"+num2str(i));\n";
+script=script+"set(\"x\",0);\n";
+script=script+"set(\"x span\",WX(i));\n";
+script=script+"if (find(down==i)){set(\"y min\",Y(i)-D(i));ord=ord+2;\n";
+script=script+"set(\"override mesh order from material database\",1);\n";
+script=script+"set(\"mesh order\",str2num(substring(order,ord,1)));}\n";
+script=script+"else{set(\"y min\",Y(i));}\n";
+script=script+"set(\"y max\",Y(i+1));\n";
+script=script+"set(\"z\",0);\n";
+script=script+"set(\"z span\",WY(i));\n";
+script=script+"set(\"material\",M{i});}\n";
+##建模
+
+addstructuregroup;
+set("name","structure");
+set("x",0);
+set("y",0);
+set("z",0);
+adduserprop("n",0,n);
+adduserprop("down",1,num2str(down));
+adduserprop("order",1,num2str(order));
+for(i=1:n){
+    adduserprop("d"+num2str(i),2,D(i));
+    adduserprop("wx"+num2str(i),2,WX(i));
+    adduserprop("wy"+num2str(i),2,WY(i));
+    adduserprop("m"+num2str(i),5,M{i});
+}
+    
+set("script",script);
+
+
+addfdtd;
+set("x",0);
+set("x span",Px*1e-6);
+set("z",0);
+set("z span",Py*1e-6);
+set("y min",0);
+set("y max",Y(n+1)+lam1*1e-6);
+set("dimension","3D");
+set("allow symmetry on all boundaries",1);
+set("force symmetric x mesh",1);
+set("force symmetric z mesh",1);
+set("x min bc","Symmetric");
+set("x max bc","Symmetric");
+set("z min bc","Anti-Symmetric");
+set("z max bc","Anti-Symmetric");
+set("pml layers",16);
+set("mesh accuracy",mesh);
+##设置FDTD
+
+addplane;
+set("injection axis","Y-axis");
+set("direction","Backward");
+set("x",0);
+set("x span",Px*1e-6);
+set("z",0);
+set("z span",Py*1e-6);
+set("y",Y(n+1)+lam1*1e-6/2);
+set("wavelength start",Band(1));
+set("wavelength stop",Band(2));
+##设置光源
+
+setglobalmonitor("frequency points",200);
+##设结果取点数
+
+addpower;
+set("name","R");
+set("monitor type","2D Y-normal");
+set("x",0);
+set("x span",Px*1e-6);
+set("z",0);
+set("z span",Py*1e-6);
+set("y",Y(n+1)+lam1*1e-6/1.5);
+set("z",0);
+##反射monitor
+
+addpower;
+set("name","T");
+set("monitor type","2D Y-normal");
+set("x",0);
+set("x span",Px*1e-6);
+set("z",0);
+set("z span",Py*1e-6);
+set("y",Y(2));
+set("z",0);
+##透射monitor
+
+addprofile;
+set("name","E");
+set("monitor type","2D Z-normal");
+set("x",0);
+set("x span",Px*1e-6);
+set("y min",0);
+set("y max",Y(n+1));
+set("z",0);
+##场分布monitor
+
+if(a!=0){
+addobject("pabs");
+set("x",0);
+set("x span",WX(a));
+set("z",0);
+set("z span",WY(a));
+if (find(down==a)){set("y",(Y(a)+Y(a+1)-D(a))/2);}
+else{set("y",(Y(a)+Y(a+1))/2);}
+set("y span",D(a));
+set("z",0);}
+##第a层吸收
+########################################
+pam="d";a=2;			#扫描参数和第n层				
+Point=10;  				#扫描次数
+st=0.1e-6;   sp=1e-6;		#扫描起始和最终值
+
+#######################################
+Name=pam+num2str(a); 
+setnamed("E","enabled",0);
+#setnamed("Pabs","enabled",0);  	
+try{deletesweep(Name);}
+addsweep;
+setsweep('sweep','name',Name);
+setsweep(Name, "type", "Ranges");
+setsweep(Name, "number of points", Point);
+
+
+if(findstring(Name,"d")==1){
+    Ys=Y;Ye=Y;
+    eval("D("+num2str(a)+")=st;");
+    for(i=1:n){
+        if (i==1){Ys(1)=0;Ys(2)=D(1);}
+        else{Ys(i+1)=Ys(i)+D(i);}}
+    eval("D("+num2str(a)+")=sp;");
+    for(i=1:n){
+        if (i==1){Ye(1)=0;Ye(2)=D(1);}
+        else{Ye(i+1)=Ye(i)+D(i);}}
+##定义parameter
+    #设置厚度变量
+    para = struct;
+    para.Name = Name;
+    para.Parameter = "::model::structure::"+Name;
+    para.Type = "Length";
+    para.Start = st;
+    para.Stop = sp;
+    para.Units = "microns";
+    addsweepparameter(Name, para);
+    #设置吸收变量（不需要可取消）
+    if(a!=0){
+    para.Name = Name+"Pabs";
+    para.Parameter = "::model::Pabs::y";
+    para.Type = "Length";
+    para.Start = (Ys(a)+Ys(a+1))/2;
+    para.Stop = (Ye(a)+Ye(a+1))/2;
+    para.Units = "microns";
+    addsweepparameter(Name, para);
+
+    para.Name = Name+"Pabs";
+    para.Parameter = "::model::Pabs::y span";
+    para.Type = "Length";
+    para.Start = Ys(a+1)-Ys(a);
+    para.Stop = Ye(a+1)-Ye(a);
+    para.Units = "microns";
+    addsweepparameter(Name, para);
+    }
+}
+else if(findstring(Name,"w")==1){
+for(i=1:n){
+    if (i==1){Y(1)=0;Y(2)=D(1);}
+    else{Y(i+1)=Y(i)+D(i);}}
+    para = struct;
+    para.Name = Name;
+    para.Parameter = "::model::structure::wx"+num2str(a);
+    para.Type = "Length";
+    para.Start = st;
+    para.Stop = sp;
+    para.Units = "microns";
+    addsweepparameter(Name, para);
+    para = struct;
+    para.Name = Name;
+    para.Parameter = "::model::structure::wy"+num2str(a);
+    para.Type = "Length";
+    para.Start = st;
+    para.Stop = sp;
+    para.Units = "microns";
+    addsweepparameter(Name, para);
+    #设置吸收变量（不需要可取消）
+    if(a!=0){
+    para.Name = Name+"Pabs";
+    para.Parameter = "::model::Pabs::x span";
+    para.Type = "Length";
+    para.Start = st;
+    para.Stop = sp;
+    para.Units = "microns";
+    addsweepparameter(Name, para);
+    para.Name = Name+"Pabs";
+    para.Parameter = "::model::Pabs::z span";
+    para.Type = "Length";
+    para.Start = st;
+    para.Stop = sp;
+    para.Units = "microns";
+    addsweepparameter(Name, para);
+    }
+}
+
+##定义result
+res1=struct;
+res1.Name ="R";
+res1.result = "::model::R::T";
+addsweepresult(Name,res1);
+res2=struct;
+res2.Name ="A";
+res2.result = "::model::Pabs::Pabs_total";
+addsweepresult(Name,res2);

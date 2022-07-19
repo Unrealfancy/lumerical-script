@@ -1,0 +1,29 @@
+#################
+#图1为透反射和吸收谱
+#图2为吸收最大值处场分布（不包含空气）
+#################
+
+
+
+# 反射透射和吸收
+f = getdata('R','f');
+T = -transmission('T');
+R = transmission('R');
+A = 1-R-T;
+plot(c*1e6/f,R,T,A,'wavelength (um)','R/T/A');
+legend('R','T','A');
+
+#场分布图
+E = getresult('E','E');
+Epin = pinch(E.E2);
+#E2为场强平方
+x = E.x;
+y = E.y;
+lambda = E.lambda;
+
+fi = find(A,max(A)); 
+#找到吸收最大的点
+lambda = lambda(fi);
+Emax = pinch(Epin,3,fi);
+Emax = Emax^0.5;
+image(x*1e6,y*1e6,Emax,"x (um)","z (um)"," E field at "+num2str(round(lambda*1e9))+" (nm)");

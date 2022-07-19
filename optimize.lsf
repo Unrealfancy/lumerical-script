@@ -1,0 +1,66 @@
+###############################
+#the script is used to define fom when imput
+#a reflective spectrum
+################################
+
+
+
+
+#clear;
+data=read("R.txt");
+data=replacestring(data,endl,"	");
+data=splitstring(data,"	");
+######################
+#read data,first array have to be um for unit,
+#second array is Reflectivity,range from 0-1.
+######################
+
+
+lambda1="["+data{1};
+R1="["+data{2};
+for (i=2:length(data)/2){
+    lambda1=lambda1+","+data{2*i-1};
+    R1=R1+","+data{2*i};
+}
+lambda1=lambda1+"]";
+R1=R1+"]";
+######################
+#set data as string for import
+#because the matrix parameter has a bug that disappear
+#when run simulation
+######################
+
+
+
+
+select("::model::");
+if (haveproperty("lambda1")){
+    set("lambda1",lambda1);
+}
+else{
+    addanalysisprop("lambda1",1,lambda1);
+}
+
+if (haveproperty("R1")){
+    set("R1",R1);
+}
+else{
+    addanalysisprop("R1",1,R1);
+}
+######################
+#import spectrum as parameter
+######################
+
+
+RS=transmission("R");
+lambdaS=c/getdata('R','f')*1e6;
+eval("lambdaO="+lambda1+";");
+eval("RO="+R1+";");
+lambdaO=transpose(lambdaO);
+RO=transpose(RO)/100;
+RR=interp(RO,lambdaO,lambdaS);
+?Tave=abs(mean(RS-RR));
+plot(lambdaS,RR,RS);
+######################
+#after running step,show FOM and spectrum 
+######################
